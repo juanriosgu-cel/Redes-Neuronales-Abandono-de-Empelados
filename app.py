@@ -24,14 +24,76 @@ def cargar_dataset():
 @st.cache_resource
 def cargar_artifacts():
     import tensorflow as tf
-    z=BASE/"artifacts_neural"
+
+    z = BASE / "artifacts_neural"
+
+    # Opción 1: artefactos dentro de artifacts_neural/
     if z.exists():
-        meta=joblib.load(z/"metadata.joblib")
-        prep=joblib.load(z/"preprocessor.joblib")
-        metrics=joblib.load(z/"neural_metrics.joblib")
-        details=joblib.load(z/"neural_details.joblib")
-        models={name:tf.keras.models.load_model(BASE/path if not Path(path).is_absolute() else path) for name,path in meta["model_files"].items()}
-        return models,prep,meta,metrics,details
+        meta = joblib.load(z / "metadata.joblib")
+        prep = joblib.load(z / "preprocessor.joblib")
+        metrics = joblib.load(z / "neural_metrics.joblib")
+        details_path = z / "neural_details.joblib"
+        details = joblib.load(details_path) if details_path.exists() else {}
+
+        models = {
+            name: tf.keras.models.load_model(
+                BASE / path if not Path(path).is_absolute() else path
+            )
+            for name, path in meta["model_files"].items()
+        }
+
+        return models, prep, meta, metrics, details
+
+    # Opción 2: artefactos actuales ubicados en la raíz del proyecto
+    current_files = [
+        BASE / "mlp.keras",
+        BASE / "wide_deep.keras",
+        BASE / "residual_mlp.keras",
+        BASE / "metadata.joblib",
+        BASE / "preprocessor.joblib",
+    ]
+
+    if all(p.exists() for p in current_files):
+        meta = joblib.load(BASE / "metadata.joblib")
+        prep = joblib.load(BASE / "preprocessor.joblib")
+
+        metrics_path = BASE / "neural_metrics.joblib"
+        details_path = BASE / "neural_details.joblib"
+
+        metrics = joblib.load(metrics_path) if metrics_path.exists() else []
+        details = joblib.load(details_path) if details_path.exists() else {}
+
+        model_files = {
+            "MLP": "mlp.keras",
+            "Wide & Deep": "wide_deep.keras",
+            "Residual MLP": "residual_mlp.keras",
+        }
+
+        models = {
+            name: tf.keras.models.load_model(BASE / filename)
+            for name, filename in model_files.items()
+        }
+
+        return models, prep, meta, metrics, details
+
+    # Opción 3: compatibilidad con artefactos anteriores
+    model_path = BASE / "aca2_red_neuronal.keras"
+    prep_path = BASE / "aca2_preprocesamiento.joblib"
+    meta_path = BASE / "aca2_metadata.joblib"
+
+    if all(p.exists() for p in [model_path, prep_path, meta_path]):
+        model = tf.keras.models.load_model(model_path)
+        prep = joblib.load(prep_path)
+        meta = joblib.load(meta_path)
+
+        metrics_path = BASE / "aca2_metricas.joblib"
+        metrics = joblib.load(metrics_path) if metrics_path.exists() else []
+
+        return {"MLP": model}, prep, meta, metrics, {}
+
+    raise FileNotFoundError(
+        "No se encontraron los artefactos del modelo en las rutas esperadas."
+    )
     # Compatibilidad con los artefactos MLP ya publicados
     model_path=BASE/"aca2_red_neuronal.keras"
     prep_path=BASE/"aca2_preprocesamiento.joblib"
